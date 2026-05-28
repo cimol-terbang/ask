@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+/* ── Light theme — balanced, not too bright ── */
+:root {
+  --mn-bg: #dce8f4;
+  --mn-surface: #eaf2fb;
+  --mn-surface-2: #ccdff0;
+  --mn-border: #a8c8e4;
+  --mn-border-soft: rgba(168,200,228,0.5);
+  --mn-text: #162436;
+  --mn-text-muted: #3d6080;
+  --mn-text-subtle: #6a96b8;
+  --mn-accent: #2d7cc4;
+  --mn-accent-hover: #1a5fa0;
+  --mn-accent-soft: rgba(45,124,196,0.12);
+  --mn-shadow-sm: 0 1px 3px rgba(30,80,140,0.10), 0 1px 2px rgba(0,0,0,0.06);
+  --mn-shadow: 0 4px 20px rgba(30,80,140,0.13), 0 1px 4px rgba(0,0,0,0.06);
+  --mn-shadow-lg: 0 8px 32px rgba(30,80,140,0.18);
+  --mn-radius: 16px;
+  --mn-radius-sm: 12px;
+  --mn-radius-xs: 8px;
+  --mn-transition: 0.18s ease;
+}
+
+/* ── Dark theme — not too dark, warm blue-grey ── */
+[data-theme='dark'] {
+  --mn-bg: #111c2a;
+  --mn-surface: #182536;
+  --mn-surface-2: #1f3048;
+  --mn-border: #2a4060;
+  --mn-border-soft: rgba(42,64,96,0.6);
+  --mn-text: #d8eaf8;
+  --mn-text-muted: #6fa0c4;
+  --mn-text-subtle: #3a6080;
+  --mn-accent: #4da0e0;
+  --mn-accent-hover: #7bbcf0;
+  --mn-accent-soft: rgba(77,160,224,0.15);
+  --mn-shadow-sm: 0 1px 3px rgba(0,0,0,0.35);
+  --mn-shadow: 0 4px 18px rgba(0,0,0,0.45);
+  --mn-shadow-lg: 0 8px 28px rgba(0,0,0,0.55);
+}
+
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--mn-bg);
+  background-image: radial-gradient(circle, rgba(45,124,196,0.08) 1px, transparent 1px);
+  background-size: 28px 28px;
+  color: var(--mn-text);
+  line-height: 1.6;
+  font-size: 15px;
+  transition: background 0.3s ease, color 0.3s ease;
+  -webkit-font-smoothing: antialiased;
+  height: 100vh;
+  overflow: hidden;
+}
+
+[data-theme='dark'] body {
+  background-image: radial-gradient(circle, rgba(77,160,224,0.06) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+h1, h2, h3, h4 { line-height: 1.3; font-weight: 700; }
+button { font-family: inherit; cursor: pointer; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--mn-border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--mn-text-subtle); }
