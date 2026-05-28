@@ -11,6 +11,7 @@
 
 	let adminSecret = $state('');
 	let authenticated = $state(false);
+	let initializing = $state(true);
 	let authError = $state('');
 	let loggingIn = $state(false);
 	let conversations = $state([]);
@@ -27,19 +28,20 @@
 
 	function headers() { return { 'x-admin-secret': adminSecret, 'Content-Type': 'application/json' }; }
 
-	async function login() {
+	async function login(silent = false) {
 		if (!adminSecret.trim() || loggingIn) return;
-		authError = ''; loggingIn = true;
+		if (!silent) authError = '';
+		loggingIn = true;
 		try {
 			const res = await fetch('/api/admin/conversations', { headers: { 'x-admin-secret': adminSecret } });
-			if (res.status === 401) { authError = 'Invalid admin secret.'; return; }
-			if (!res.ok) { authError = `Server error (${res.status}).`; return; }
+			if (res.status === 401) { if (!silent) authError = 'Invalid admin secret.'; return; }
+			if (!res.ok) { if (!silent) authError = `Server error (${res.status}).`; return; }
 			localStorage.setItem('ask_admin_secret', adminSecret);
 			authenticated = true;
 			await loadConversations();
 			pollingInterval = setInterval(loadConversations, 8000);
-		} catch { authError = 'Connection error. Is the server running?'; }
-		finally { loggingIn = false; }
+		} catch { if (!silent) authError = 'Connection error. Is the server running?'; }
+		finally { loggingIn = false; initializing = false; }
 	}
 
 	async function loadConversations() {
@@ -79,6 +81,13 @@
 		if (selectedConv?.id === conv.id) selectedConv = { ...selectedConv, status: 'closed' };
 	}
 
+	async function deleteConversation(conv) {
+		if (!confirm(`Delete "${conv.title}"? This cannot be undone.`)) return;
+		await fetch(`/api/admin/conversations/${conv.id}`, { method: 'DELETE', headers: headers() });
+		if (selectedConv?.id === conv.id) { selectedConv = null; convMessages = []; }
+		await loadConversations();
+	}
+
 	function signOut() {
 		authenticated = false; adminSecret = '';
 		clearInterval(pollingInterval);
@@ -94,7 +103,12 @@
 
 	onMount(() => {
 		const saved = localStorage.getItem('ask_admin_secret');
-		if (saved) { adminSecret = saved; login(); }
+		if (saved) {
+			adminSecret = saved;
+			login(true);  // silent auto-login, initializing stays true until done
+		} else {
+			initializing = false;  // no saved secret, show login form immediately
+		}
 		return () => clearInterval(pollingInterval);
 	});
 
@@ -103,7 +117,9 @@
 
 <svelte:head><title>Admin — Ask</title></svelte:head>
 
-{#if !authenticated}
+{#if initializing}
+<!-- silently restoring session, render nothing to avoid flash -->
+{:else if !authenticated}
 <div class="login-wrap">
 	<div class="login-card">
 		<div class="login-card-top">
@@ -140,11 +156,18 @@
 		</div>
 
 		{#each displayList as conv (conv.id)}
-			<button class="conv-item {selectedConv?.id === conv.id ? 'active' : ''} {conv.status === 'closed' ? 'closed' : ''}"
-				onclick={() => selectConversation(conv)}>
-				<span class="conv-title">{conv.title}</span>
-				<span class="conv-meta">{fmt(conv.createdAt)}</span>
-			</button>
+			<div class="conv-row">
+				<button class="conv-item {selectedConv?.id === conv.id ? 'active' : ''} {conv.status === 'closed' ? 'closed' : ''}"
+					onclick={() => selectConversation(conv)}>
+					<span class="conv-title">{conv.title}</span>
+					<span class="conv-meta">{fmt(conv.createdAt)}</span>
+				</button>
+				<button class="conv-delete" onclick={() => deleteConversation(conv)} title="Delete conversation" aria-label="Delete conversation">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+					</svg>
+				</button>
+			</div>
 		{:else}
 			<p class="empty-hint">{activeTab === 'active' ? 'No active conversations.' : 'No closed conversations.'}</p>
 		{/each}
@@ -160,6 +183,13 @@
 			{#snippet children()}
 				{#if selectedConv?.status === 'active'}
 					<button class="btn-end" onclick={() => closeConversation(selectedConv)}>Close</button>
+				{/if}
+				{#if selectedConv}
+					<button class="btn-delete-nav" onclick={() => deleteConversation(selectedConv)} title="Delete conversation" aria-label="Delete conversation">
+						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+						</svg>
+					</button>
 				{/if}
 			{/snippet}
 		</AppNavbar>
@@ -239,7 +269,27 @@
 .tab-count { background: var(--mn-surface-2); color: var(--mn-text-subtle); font-size: 0.65rem; padding: 1px 6px; border-radius: 20px; }
 .tab-active .tab-count { background: var(--mn-accent-soft); color: var(--mn-accent); }
 
-.conv-item { width: 100%; text-align: left; padding: 9px 10px; border-radius: var(--mn-radius-xs); border: none; background: transparent; color: var(--mn-text-muted); cursor: pointer; transition: all var(--mn-transition); display: block; margin-bottom: 1px; }
+.conv-row { display: flex; align-items: center; gap: 2px; margin-bottom: 1px; }
+.conv-row .conv-item { margin-bottom: 0; flex: 1; min-width: 0; }
+.conv-item { width: 100%; text-align: left; padding: 9px 10px; border-radius: var(--mn-radius-xs); border: none; background: transparent; color: var(--mn-text-muted); cursor: pointer; transition: all var(--mn-transition); display: block; }
+.conv-delete {
+	flex-shrink: 0; width: 28px; height: 28px;
+	display: flex; align-items: center; justify-content: center;
+	background: none; border: none; border-radius: var(--mn-radius-xs);
+	color: var(--mn-text-subtle); cursor: pointer;
+	opacity: 0; transition: all var(--mn-transition);
+}
+.conv-row:hover .conv-delete { opacity: 1; }
+.conv-delete:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
+
+.btn-delete-nav {
+	width: 32px; height: 32px; flex-shrink: 0;
+	display: flex; align-items: center; justify-content: center;
+	background: none; border: none; border-radius: var(--mn-radius-xs);
+	color: var(--mn-text-subtle); cursor: pointer;
+	transition: all var(--mn-transition);
+}
+.btn-delete-nav:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
 .conv-item:hover { background: var(--mn-accent-soft); color: var(--mn-text); }
 .conv-item.active { background: var(--mn-accent-soft); color: var(--mn-accent); }
 .conv-item.closed { opacity: 0.6; }

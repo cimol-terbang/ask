@@ -68,7 +68,7 @@
 		font-size: 0.9rem; line-height: 1.5;
 		padding: 0; outline: none;
 		min-height: 44px; max-height: 140px;
-		display: flex; align-items: center;
+		overflow-y: auto;
 	}
 	.chat-input:focus { box-shadow: none; border-color: transparent; }
 	.chat-input::placeholder { color: var(--mn-text-subtle); }
