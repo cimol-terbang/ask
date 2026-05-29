@@ -34,7 +34,10 @@
 		loggingIn = true;
 		try {
 			const res = await fetch('/api/admin/conversations', { headers: { 'x-admin-secret': adminSecret } });
-			if (res.status === 401) { if (!silent) authError = 'Invalid admin secret.'; return; }
+			if (res.status === 401) {
+				if (silent) { signOut(); return; } // saved secret invalid → kick out
+				authError = 'Invalid admin secret.'; return;
+			}
 			if (!res.ok) { if (!silent) authError = `Server error (${res.status}).`; return; }
 			localStorage.setItem('ask_admin_secret', adminSecret);
 			authenticated = true;
@@ -42,6 +45,19 @@
 			pollingInterval = setInterval(loadConversations, 8000);
 		} catch { if (!silent) authError = 'Connection error. Is the server running?'; }
 		finally { loggingIn = false; initializing = false; }
+	}
+
+	// Validate saved secret in background without blocking render
+	async function validateSavedSecret() {
+		try {
+			const res = await fetch('/api/admin/conversations', { headers: { 'x-admin-secret': adminSecret } });
+			if (res.status === 401) { signOut(); return; }
+			if (res.ok) {
+				// Secret still valid — load conversations now
+				await loadConversations();
+				pollingInterval = setInterval(loadConversations, 8000);
+			}
+		} catch { /* network error — stay logged in, will retry on next poll */ }
 	}
 
 	async function loadConversations() {
@@ -105,7 +121,9 @@
 		const saved = localStorage.getItem('ask_admin_secret');
 		if (saved) {
 			adminSecret = saved;
-			login(true);  // silent auto-login, initializing stays true until done
+			authenticated = true;  // trust localStorage instantly — no flash, no wait
+			initializing = false;
+			validateSavedSecret();  // verify in background, kick out if invalid
 		} else {
 			initializing = false;  // no saved secret, show login form immediately
 		}
@@ -118,7 +136,9 @@
 <svelte:head><title>Admin — Ask</title></svelte:head>
 
 {#if initializing}
-<!-- silently restoring session, render nothing to avoid flash -->
+<div class="init-screen">
+	<div class="init-spinner"></div>
+</div>
 {:else if !authenticated}
 <div class="login-wrap">
 	<div class="login-card">
@@ -226,6 +246,18 @@
 <Footer />
 
 <style>
+/* ── Init loading screen ── */
+.init-screen {
+	flex: 1; display: flex; align-items: center; justify-content: center;
+}
+.init-spinner {
+	width: 28px; height: 28px; border-radius: 50%;
+	border: 3px solid var(--mn-border);
+	border-top-color: var(--mn-accent);
+	animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ── Login ── */
 .login-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; overflow-y: auto; }
 .login-card {
