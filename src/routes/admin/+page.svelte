@@ -26,6 +26,26 @@
 	let pollingInterval = null;
 	let messagesEl = $state(null);
 
+	// lastSeen[convId] = ISO string of when admin last opened that conversation
+	let lastSeen = $state({});
+
+	function loadLastSeen() {
+		try { lastSeen = JSON.parse(localStorage.getItem('ask_admin_lastseen') || '{}'); }
+		catch { lastSeen = {}; }
+	}
+
+	function markSeen(convId, lastUserMessageAt) {
+		lastSeen = { ...lastSeen, [convId]: lastUserMessageAt ?? new Date().toISOString() };
+		localStorage.setItem('ask_admin_lastseen', JSON.stringify(lastSeen));
+	}
+
+	function hasUnread(conv) {
+		if (!conv.lastUserMessageAt) return false;
+		const seen = lastSeen[conv.id];
+		if (!seen) return true;
+		return new Date(conv.lastUserMessageAt) > new Date(seen);
+	}
+
 	function headers() { return { 'x-admin-secret': adminSecret, 'Content-Type': 'application/json' }; }
 
 	async function login(silent = false) {
@@ -76,7 +96,11 @@
 		try {
 			const res = await fetch(`/api/admin/conversations/${conv.id}/messages`, { headers: headers() });
 			if (res.ok) convMessages = (await res.json()).messages;
-		} finally { loading = false; }
+		} finally {
+			loading = false;
+			// mark as seen up to the latest user message
+			markSeen(conv.id, conv.lastUserMessageAt);
+		}
 	}
 
 	async function sendReply() {
@@ -118,6 +142,7 @@
 	});
 
 	onMount(() => {
+		loadLastSeen();
 		const saved = localStorage.getItem('ask_admin_secret');
 		if (saved) {
 			adminSecret = saved;
@@ -131,6 +156,7 @@
 	});
 
 	let displayList = $derived(activeTab === 'active' ? conversations : closedConversations);
+	let unreadCount = $derived(conversations.filter(c => hasUnread(c)).length);
 </script>
 
 <svelte:head><title>Admin — Ask</title></svelte:head>
@@ -168,7 +194,11 @@
 
 		<div class="tab-bar">
 			<button class="tab {activeTab === 'active' ? 'tab-active' : ''}" onclick={() => (activeTab = 'active')}>
-				Active <span class="tab-count">{conversations.length}</span>
+				Active
+				<span class="tab-count">{conversations.length}</span>
+				{#if unreadCount > 0}
+					<span class="tab-unread">{unreadCount}</span>
+				{/if}
 			</button>
 			<button class="tab {activeTab === 'closed' ? 'tab-active' : ''}" onclick={() => (activeTab = 'closed')}>
 				Closed <span class="tab-count">{closedConversations.length}</span>
@@ -176,11 +206,15 @@
 		</div>
 
 		{#each displayList as conv (conv.id)}
+			{@const unread = hasUnread(conv)}
 			<div class="conv-row">
-				<button class="conv-item {selectedConv?.id === conv.id ? 'active' : ''} {conv.status === 'closed' ? 'closed' : ''}"
+				<button class="conv-item {selectedConv?.id === conv.id ? 'active' : ''} {conv.status === 'closed' ? 'closed' : ''} {unread ? 'unread' : ''}"
 					onclick={() => selectConversation(conv)}>
-					<span class="conv-title">{conv.title}</span>
-					<span class="conv-meta">{fmt(conv.createdAt)}</span>
+					<span class="conv-title-row">
+						{#if unread}<span class="unread-dot" aria-label="New message"></span>{/if}
+						<span class="conv-title">{conv.title}</span>
+					</span>
+					<span class="conv-meta">{fmt(conv.lastMessageAt ?? conv.createdAt)}</span>
 				</button>
 				<button class="conv-delete" onclick={() => deleteConversation(conv)} title="Delete conversation" aria-label="Delete conversation">
 					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -325,8 +359,19 @@
 .conv-item:hover { background: var(--mn-accent-soft); color: var(--mn-text); }
 .conv-item.active { background: var(--mn-accent-soft); color: var(--mn-accent); }
 .conv-item.closed { opacity: 0.6; }
+.conv-item.unread .conv-title { color: var(--mn-text); font-weight: 700; }
+.conv-title-row { display: flex; align-items: center; gap: 5px; overflow: hidden; }
 .conv-title { display: block; font-size: 0.82rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .conv-meta { display: block; font-size: 0.68rem; color: var(--mn-text-subtle); margin-top: 2px; }
+.unread-dot {
+	flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%;
+	background: var(--mn-accent); display: inline-block;
+}
+.tab-unread {
+	background: var(--mn-accent); color: #fff;
+	font-size: 0.6rem; font-weight: 700;
+	padding: 1px 5px; border-radius: 20px; line-height: 1.4;
+}
 .empty-hint { font-size: 0.8rem; color: var(--mn-text-subtle); text-align: center; padding: 32px 12px; }
 
 /* ── End/Close button ── */
