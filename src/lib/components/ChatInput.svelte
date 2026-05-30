@@ -64,22 +64,8 @@
 		</div>
 	{/if}
 
-	<div class="input-row">
-		<!-- Attach button -->
-		<button
-			class="attach-btn"
-			onclick={openFilePicker}
-			disabled={sending || attachedFiles.length >= 4}
-			aria-label="Attach image"
-			title="Attach image (max 4)"
-			type="button"
-		>
-			<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-				<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
-				<polyline points="21 15 16 10 5 21"/>
-			</svg>
-		</button>
-
+	<!-- Toolbar above input -->
+	<div class="input-toolbar">
 		<input
 			bind:this={fileInput}
 			type="file"
@@ -90,32 +76,50 @@
 			aria-hidden="true"
 			tabindex="-1"
 		/>
-
-		<textarea
-			bind:value
-			{placeholder}
-			disabled={sending}
-			rows="3"
-			class="chat-input"
-		></textarea>
+		<button
+			class="attach-btn"
+			onclick={openFilePicker}
+			disabled={sending || attachedFiles.length >= 4}
+			aria-label="Attach image"
+			title="Attach image (max 4)"
+			type="button"
+		>
+			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+				<polyline points="21 15 16 10 5 21"/>
+			</svg>
+			<span class="attach-label">Attach image</span>
+		</button>
 	</div>
 
-	<button
-		class="send-btn"
-		onclick={onsend}
-		disabled={!canSend}
-		aria-label="Send"
-	>
-		{#if sending}
-			<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<circle cx="12" cy="12" r="10" stroke-dasharray="31.4" stroke-dashoffset="10" style="animation: spin 0.8s linear infinite"/>
-			</svg>
-		{:else}
-			<svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
-				<path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-			</svg>
-		{/if}
-	</button>
+	<div class="input-bottom">
+		<div class="input-row">
+			<textarea
+				bind:value
+				{placeholder}
+				disabled={sending}
+				rows="3"
+				class="chat-input"
+			></textarea>
+		</div>
+
+		<button
+			class="send-btn"
+			onclick={onsend}
+			disabled={!canSend}
+			aria-label="Send"
+		>
+			{#if sending}
+				<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<circle cx="12" cy="12" r="10" stroke-dasharray="31.4" stroke-dashoffset="10" style="animation: spin 0.8s linear infinite"/>
+				</svg>
+			{:else}
+				<svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
+					<path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+				</svg>
+			{/if}
+		</button>
+	</div>
 </div>
 
 <style>
@@ -156,10 +160,15 @@
 		box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 	}
 
+	/* ── Input bottom row (input-row + send btn) ── */
+	.input-bottom {
+		display: flex; gap: 8px; align-items: center;
+	}
+
 	/* ── Input row ── */
 	.input-row {
 		flex: 1; min-width: 0;
-		display: flex; gap: 8px; align-items: center;
+		display: flex;
 		background: var(--mn-bg);
 		border: 1.5px solid var(--mn-border-soft);
 		border-radius: var(--mn-radius);
@@ -172,15 +181,21 @@
 		box-shadow: var(--mn-shadow), 0 0 0 3px var(--mn-accent-soft);
 	}
 
+	/* ── Toolbar above input ── */
+	.input-toolbar {
+		display: flex; align-items: center; gap: 4px;
+	}
+
 	/* ── Attach button ── */
 	.attach-btn {
-		flex-shrink: 0; width: 32px; height: 32px;
-		display: flex; align-items: center; justify-content: center;
-		background: none; border: none; border-radius: var(--mn-radius-xs);
-		color: var(--mn-text-subtle); cursor: pointer;
-		transition: all var(--mn-transition); padding: 0;
+		display: inline-flex; align-items: center; gap: 5px;
+		height: 26px; padding: 0 8px;
+		background: none; border: 1px solid var(--mn-border-soft);
+		border-radius: 20px; color: var(--mn-text-subtle);
+		font-size: 0.72rem; font-family: inherit;
+		cursor: pointer; transition: all var(--mn-transition);
 	}
-	.attach-btn:hover:not(:disabled) { color: var(--mn-accent); background: var(--mn-accent-soft); }
+	.attach-btn:hover:not(:disabled) { color: var(--mn-accent); border-color: var(--mn-accent); background: var(--mn-accent-soft); }
 	.attach-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 	.file-input-hidden { display: none; }
@@ -200,10 +215,6 @@
 	.chat-input:disabled { opacity: 0.5; cursor: not-allowed; }
 
 	/* ── Send button ── */
-	.input-area > .send-btn {
-		/* send button sits outside input-row, aligned to the right */
-		align-self: flex-end;
-	}
 	.send-btn {
 		width: 44px; height: 44px; flex-shrink: 0;
 		border-radius: 50%; border: none;
