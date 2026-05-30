@@ -28,10 +28,10 @@ export async function GET({ params }) {
 export async function POST({ params, request }) {
 	const { sessionId } = params;
 	const body = await request.json();
-	const { content, title } = body;
+	const { content, title, imageUrl } = body;
 
-	if (!content?.trim()) {
-		throw error(400, 'Content is required');
+	if (!content?.trim() && !imageUrl) {
+		throw error(400, 'Content or image is required');
 	}
 
 	// Upsert conversation
@@ -44,7 +44,7 @@ export async function POST({ params, request }) {
 			.insert(conversations)
 			.values({
 				sessionId,
-				title: title || content.slice(0, 60),
+				title: title || content?.slice(0, 60) || 'Image',
 				status: 'active'
 			})
 			.returning();
@@ -60,7 +60,8 @@ export async function POST({ params, request }) {
 		.values({
 			conversationId: conv.id,
 			role: 'user',
-			content: content.trim()
+			content: content?.trim() ?? '',
+			imageUrl: imageUrl ?? null
 		})
 		.returning();
 

@@ -30,10 +30,10 @@ export async function POST({ params, request }) {
 	checkAuth(request);
 	const id = parseInt(params.id);
 	const body = await request.json();
-	const { content } = body;
+	const { content, imageUrl } = body;
 
-	if (!content?.trim()) {
-		throw error(400, 'Content is required');
+	if (!content?.trim() && !imageUrl) {
+		throw error(400, 'Content or image is required');
 	}
 
 	const conv = await db.query.conversations.findFirst({
@@ -50,7 +50,12 @@ export async function POST({ params, request }) {
 
 	const [msg] = await db
 		.insert(messages)
-		.values({ conversationId: id, role: 'admin', content: content.trim() })
+		.values({
+			conversationId: id,
+			role: 'admin',
+			content: content?.trim() ?? '',
+			imageUrl: imageUrl ?? null
+		})
 		.returning();
 
 	return json({ message: msg }, { status: 201 });

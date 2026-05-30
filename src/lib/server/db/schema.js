@@ -18,5 +18,6 @@ export const messages = pgTable('messages', {
 		.references(() => conversations.id, { onDelete: 'cascade' }),
 	role: varchar('role', { length: 10 }).notNull(), // 'user' | 'admin'
 	content: text('content').notNull(),
+	imageUrl: text('image_url'),                     // optional attached image
 	createdAt: timestamp('created_at').defaultNow().notNull()
 });

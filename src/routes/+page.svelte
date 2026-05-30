@@ -23,6 +23,8 @@
 	let drawerOpen = $state(false);
 	let pollingInterval = null;
 	let messagesEl = $state(null);
+	/** @type {any} reference to ChatInput component */
+	let chatInputRef = $state(null);
 
 	let activeSession  = $derived(sessions.find((s) => s.sessionId === activeSessionId) ?? null);
 	let activeSessions = $derived(sessions.filter((s) => s.status === 'active'));
@@ -58,24 +60,39 @@
 
 	async function sendMessage() {
 		const text = inputText.trim();
-		if (!text || sending) return;
+		const files = chatInputRef?.getAttachedFiles() ?? [];
+		if (!text && files.length === 0) return;
+		if (sending) return;
 		inputText = '';
 		sending = true;
+
+		// Upload images first if any
+		let imageUrl = null;
+		if (files.length > 0) {
+			try {
+				const fd = new FormData();
+				fd.append('file', files[0]); // one image per message
+				const res = await fetch('/api/upload', { method: 'POST', body: fd });
+				if (res.ok) { const data = await res.json(); imageUrl = data.url; }
+			} catch { /* upload failed — send without image */ }
+		}
+		chatInputRef?.clearAttachments();
+
 		if (!activeSession) {
 			const sessionId = crypto.randomUUID();
-			const title = text.length > 60 ? text.slice(0, 60) + '…' : text;
+			const title = text.length > 60 ? text.slice(0, 60) + '…' : text || 'Image';
 			sessions = [{ sessionId, title, status: 'active', messages: [] }, ...sessions];
 			activeSessionId = sessionId;
 		}
 		const session = sessions.find((s) => s.sessionId === activeSessionId);
-		if (!session.title) { session.title = text.length > 60 ? text.slice(0, 60) + '…' : text; sessions = [...sessions]; }
-		const tempMsg = { id: `temp-${Date.now()}`, role: 'user', content: text, createdAt: new Date().toISOString() };
+		if (!session.title) { session.title = text.length > 60 ? text.slice(0, 60) + '…' : text || 'Image'; sessions = [...sessions]; }
+		const tempMsg = { id: `temp-${Date.now()}`, role: 'user', content: text, imageUrl, createdAt: new Date().toISOString() };
 		session.messages = [...session.messages, tempMsg];
 		sessions = [...sessions];
 		try {
 			const res = await fetch(`/api/conversations/${session.sessionId}/messages`, {
 				method: 'POST', headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ content: text, title: session.title })
+				body: JSON.stringify({ content: text, title: session.title, imageUrl })
 			});
 			if (res.ok) {
 				const data = await res.json();
@@ -181,7 +198,7 @@
 			/>
 
 			{#if activeSession.status === 'active'}
-				<ChatInput bind:value={inputText} placeholder="Ask something…" {sending} onsend={sendMessage} />
+				<ChatInput bind:this={chatInputRef} bind:value={inputText} placeholder="Ask something…" {sending} onsend={sendMessage} />
 			{:else}
 				<div class="closed-bar">This conversation is closed.</div>
 			{/if}

@@ -25,6 +25,8 @@
 	let drawerOpen = $state(false);
 	let pollingInterval = null;
 	let messagesEl = $state(null);
+	/** @type {any} */
+	let chatInputRef = $state(null);
 
 	// lastSeen[convId] = ISO string of when admin last opened that conversation
 	let lastSeen = $state({});
@@ -105,11 +107,27 @@
 
 	async function sendReply() {
 		const text = replyText.trim();
-		if (!text || !selectedConv || sending) return;
-		replyText = ''; sending = true;
+		const files = chatInputRef?.getAttachedFiles() ?? [];
+		if ((!text && files.length === 0) || !selectedConv || sending) return;
+		replyText = '';
+		sending = true;
+
+		// Upload image first if attached
+		let imageUrl = null;
+		if (files.length > 0) {
+			try {
+				const fd = new FormData();
+				fd.append('file', files[0]);
+				const res = await fetch('/api/upload', { method: 'POST', body: fd });
+				if (res.ok) { const data = await res.json(); imageUrl = data.url; }
+			} catch { /* send without image on failure */ }
+		}
+		chatInputRef?.clearAttachments();
+
 		try {
 			const res = await fetch(`/api/admin/conversations/${selectedConv.id}/messages`, {
-				method: 'POST', headers: headers(), body: JSON.stringify({ content: text })
+				method: 'POST', headers: headers(),
+				body: JSON.stringify({ content: text, imageUrl })
 			});
 			if (res.ok) { const data = await res.json(); convMessages = [...convMessages, data.message]; }
 		} finally { sending = false; }
@@ -261,7 +279,7 @@
 			{/if}
 
 			{#if selectedConv.status === 'active'}
-				<ChatInput bind:value={replyText} placeholder="Reply to this conversation…" {sending} onsend={sendReply} />
+				<ChatInput bind:this={chatInputRef} bind:value={replyText} placeholder="Reply to this conversation…" {sending} onsend={sendReply} />
 			{:else}
 				<div class="closed-bar">This conversation is closed.</div>
 			{/if}

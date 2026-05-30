@@ -35,7 +35,14 @@
 				{#if showLabel(msg.role)}
 					<div class="bubble-label">{labelText(msg.role)}</div>
 				{/if}
-				<p class="bubble-text">{msg.content}</p>
+				{#if msg.imageUrl}
+					<a href={msg.imageUrl} target="_blank" rel="noopener noreferrer" class="bubble-img-link">
+						<img src={msg.imageUrl} alt="attachment" class="bubble-img" loading="lazy" />
+					</a>
+				{/if}
+				{#if msg.content}
+					<p class="bubble-text">{msg.content}</p>
+				{/if}
 				<div class="bubble-time">{fmt(msg.createdAt)}</div>
 			</div>
 		</div>
@@ -85,4 +92,12 @@
 
 	.bubble-text { white-space: pre-wrap; word-break: break-word; }
 	.bubble-time { font-size: 0.65rem; margin-top: 5px; text-align: right; opacity: 0.55; }
+
+	.bubble-img-link { display: block; margin-bottom: 6px; }
+	.bubble-img {
+		max-width: 100%; max-height: 260px;
+		border-radius: calc(var(--mn-radius-sm) - 4px);
+		display: block; cursor: zoom-in;
+		object-fit: contain;
+	}
 </style>
